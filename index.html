@@ -22,6 +22,8 @@ SPDX-License-Identifier: Apache-2.0
 html, body {
 	margin: 0;
 	height: 100%;
+}
+html, body, textarea {
 	font-size: 16px;
 	font-family: Menlo, Monaco, source-code-pro, monospace;
 }
@@ -70,8 +72,10 @@ pre {
 		<script src="wasm_exec.js"></script>
 		<script>
 			const go = new Go();
+			const skycfg_sha256 = "8d7d27ec10659955307f21a40cd6491401acd75aec601d1b3eca7798e940964f";
 			let loaded = new Promise(function(resolve, reject) {
-				WebAssembly.instantiateStreaming(fetch("skycfg.wasm"), go.importObject).then((result) => {
+				let stream = fetch(`skycfg-${skycfg_sha256}.wasm`);
+				WebAssembly.instantiateStreaming(stream, go.importObject).then((result) => {
 					resolve();
 					go.run(result.instance);
 				});
