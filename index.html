@@ -81,19 +81,37 @@ pre {
 	<body>
 		<div id="left-panel">
 			<textarea id="skycfg-input">
-tutorial = proto.package("tutorial")
+apps = proto.package("k8s.io.api.apps.v1")
+core = proto.package("k8s.io.api.core.v1")
+meta = proto.package("k8s.io.apimachinery.pkg.apis.meta.v1")
 
-def phone_number(number, type = tutorial.Person.PhoneType.HOME):
-	return tutorial.Person.PhoneNumber(number = number, type = type)
+def deployment(name, labels={}, replicas=1, containers=[]):
+  return apps.Deployment(
+      metadata = meta.ObjectMeta(name = name),
+      spec = apps.DeploymentSpec(
+          selector = meta.LabelSelector(matchLabels = labels),
+          replicas = replicas,
+          template = core.PodTemplateSpec(
+              metadata = meta.ObjectMeta(labels = labels),
+              spec = core.PodSpec(containers = containers),
+          ),
+      )
+  )
+
+def nginx(version, port=80):
+  return core.Container(
+    name = "nginx",
+    image = "nginx:{}".format(version),
+    ports = [core.ContainerPort(containerPort = port)],
+  )
 
 def main(ctx):
-	jdoe = tutorial.Person(
-		id = 1234,
-		name = "John Doe",
-		email = "jdoe@example.com",
-		phones = [phone_number("555-4321")]
-	)
-	return [jdoe]
+  return [deployment(
+    name = "nginx-deployment",
+    labels = {"app": "nginx"},
+    replicas = 2,
+    containers = [nginx("1.8")]
+  )]
 </textarea>
 			<pre id="skycfg-error"></pre>
 		</div>
@@ -101,9 +119,9 @@ def main(ctx):
 			<div style="padding: 5px">
 				<label for="output-format">Output format:</label>
 				<select id="output-format">
+					<option value="proto">Protobuf</option>
 					<option value="yaml">YAML</option>
 					<option value="json">JSON</option>
-					<option value="proto">Protobuf</option>
 				</select>
 			</div>
 			<pre id="skycfg-output"></pre>
