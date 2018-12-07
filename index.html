@@ -23,7 +23,7 @@ html, body {
 	margin: 0;
 	height: 100%;
 }
-html, body, textarea {
+html, body, textarea, pre {
 	font-size: 16px;
 	font-family: Menlo, Monaco, source-code-pro, monospace;
 }
@@ -72,7 +72,7 @@ pre {
 		<script src="wasm_exec.js"></script>
 		<script>
 			const go = new Go();
-			const skycfg_sha256 = "8d7d27ec10659955307f21a40cd6491401acd75aec601d1b3eca7798e940964f";
+			const skycfg_sha256 = "13ce1c1a22c2360c8eeb5ce98af5e0505595a03322d38b2c1c8d9d01d32d4a53";
 			let loaded = new Promise(function(resolve, reject) {
 				let stream = fetch(`skycfg-${skycfg_sha256}.wasm`);
 				WebAssembly.instantiateStreaming(stream, go.importObject).then((result) => {
@@ -123,12 +123,27 @@ def main(ctx):
 			<div style="padding: 5px">
 				<label for="output-format">Output format:</label>
 				<select id="output-format">
-					<option value="proto">Protobuf</option>
 					<option value="yaml">YAML</option>
 					<option value="json">JSON</option>
+					<option value="proto">Protobuf</option>
 				</select>
 			</div>
-			<pre id="skycfg-output"></pre>
+			<div style="padding: 5px">
+				<label for="emit-defaults">Include Default Values:</label>
+				<input id="emit-defaults" type="checkbox"></input>
+			</div>
+			<pre id="skycfg-output">
+ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+ ┃   Downloading WebAssembly module (13 MB)   ┃
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+          ╲  (\/)
+            (_o |
+             /  |
+             \  \______
+              \        )o
+               /|----- |
+               \|     /|
+			</pre>
 		</div>
 	</body>
 	<script>
@@ -136,50 +151,66 @@ def main(ctx):
 			const input = document.getElementById("skycfg-input");
 			const output = document.getElementById("skycfg-output");
 			const outputFormat = document.getElementById("output-format");
+			const emitDefaults = document.getElementById("emit-defaults");
 			const error = document.getElementById("skycfg-error");
 
-			let result = null;
+			let dirty = false;
+			const inputChanged = () => {
+				if (dirty) { return; }
+				dirty = true;
+				setTimeout(() => {
+					dirty = false;
+					refresh();
+				}, 250);
+			};
 
 			const refresh = () => {
-				if (result === null) {
+				const syntax = outputFormat.value;
+				let opts = {
+					syntax,
+					emit_defaults: emitDefaults.checked,
+				};
+
+				window.skycfg_main(input.value, JSON.stringify(opts), {
+					err: (err) => {
+						render(null, err);
+					},
+					ok: (messages) => {
+						render({syntax, messages}, null);
+					},
+				});
+			};
+
+			const render = (result, err) => {
+				if (err) {
+					output.innerText = "";
+					error.innerText = err;
+					error.style = "display: block";
 					return;
 				}
+
+				error.innerText = "";
+				error.style = "";
+
 				let newText = "";
-				for (let item of result) {
+				for (let item of result.messages) {
 					if (newText !== "") {
-						if (outputFormat.value === "yaml") {
+						if (result.syntax === "yaml") {
 							newText += "---\n";
 						} else {
 							newText += "\n";
 						}
 					}
-					newText += item[outputFormat.value];
+					newText += item;
 				};
 				output.innerText = newText;
 			};
 
-			const input_changed = () => {
-				window.skycfg_main(input.value, {
-					err: (err) => {
-						output.innerText = "";
-						error.innerText = err;
-						error.style = "display: block";
-					},
-					ok: (newResult) => {
-						result = newResult;
-						error.innerText = "";
-						error.style = "";
-						refresh();
-					},
-				});
-			}
+			input.addEventListener("input", inputChanged);
+			outputFormat.addEventListener("change", refresh);
+			emitDefaults.addEventListener("change", refresh);
 
-			input.addEventListener("input", input_changed);
-			outputFormat.addEventListener("change", () => {
-				refresh();
-			});
-
-			loaded.then((value) => { input_changed() });
+			loaded.then((value) => { refresh() });
 		})();
 	</script>
 </html>
