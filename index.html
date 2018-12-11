@@ -18,12 +18,13 @@ SPDX-License-Identifier: Apache-2.0
 <html>
 	<head>
 		<meta charset="utf-8">
+		<title>Skycfg Is Fun!</title>
 		<style>
 html, body {
 	margin: 0;
 	height: 100%;
 }
-html, body, textarea, pre {
+html, body, pre {
 	font-size: 16px;
 	font-family: Menlo, Monaco, source-code-pro, monospace;
 }
@@ -38,6 +39,11 @@ pre {
 	position: absolute;
 	left: 0;
 	top: 0;
+	border-right: 2px solid #888;
+}
+
+#header {
+	margin: 1em;
 }
 
 #skycfg-input {
@@ -48,7 +54,7 @@ pre {
 #skycfg-error {
 	width: 90%;
 	position: absolute;
-	left: 0;
+	left: 50px;
 	bottom: 0;
 	border: 3px solid #CC1F1A;
 	background-color: #F9ACAA;
@@ -66,10 +72,13 @@ pre {
 }
 
 #skycfg-output {
-	margin: 5px;
+	margin: 0 0 0 1em;
 }
 		</style>
 		<script src="wasm_exec.js"></script>
+		<script src="/ace-v1.4.2/ace.js" type="text/javascript" charset="utf-8"></script>
+		<script src="/prism-v1.15.0/prism.js" type="text/javascript" data-manual></script>
+		<link rel="stylesheet" href="/prism-v1.15.0/prism.css" />
 		<script>
 			const go = new Go();
 			const skycfg_sha256 = "13ce1c1a22c2360c8eeb5ce98af5e0505595a03322d38b2c1c8d9d01d32d4a53";
@@ -84,7 +93,7 @@ pre {
 	</head>
 	<body>
 		<div id="left-panel">
-			<textarea id="skycfg-input">
+			<div id="skycfg-input">
 apps = proto.package("k8s.io.api.apps.v1")
 core = proto.package("k8s.io.api.core.v1")
 meta = proto.package("k8s.io.apimachinery.pkg.apis.meta.v1")
@@ -115,44 +124,51 @@ def main(ctx):
     labels = {"app": "nginx"},
     replicas = 2,
     containers = [nginx("1.8")]
-  )]
-</textarea>
+  )]</div>
 			<pre id="skycfg-error"></pre>
 		</div>
 		<div id="right-panel">
-			<div style="padding: 5px">
-				<label for="output-format">Output format:</label>
-				<select id="output-format">
-					<option value="yaml">YAML</option>
-					<option value="json">JSON</option>
-					<option value="proto">Protobuf</option>
-				</select>
-			</div>
-			<div style="padding: 5px">
-				<label for="emit-defaults">Include Default Values:</label>
-				<input id="emit-defaults" type="checkbox"></input>
+			<div id="header">
+				<div>WebAssembly demo for <a href="https://github.com/stripe/skycfg">github.com/stripe/skycfg</a> + Kubernetes</div>
+				<div style="padding: 0.5em 0">
+					<label for="output-format">Output format:</label>
+					<select id="output-format">
+						<option value="yaml">YAML</option>
+						<option value="json">JSON</option>
+						<option value="proto">Protobuf</option>
+					</select>
+				</div>
+				<div style="padding: 0.5em 0 0 0">
+					<label for="emit-defaults">Include default values:</label>
+					<input id="emit-defaults" type="checkbox"></input>
+				</div>
 			</div>
 			<pre id="skycfg-output">
- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
- ┃   Downloading WebAssembly module (13 MB)   ┃
- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-          ╲  (\/)
-            (_o |
-             /  |
-             \  \______
-              \        )o
-               /|----- |
-               \|     /|
-			</pre>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃   Downloading WebAssembly module (13 MB)   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+         ╲  (\/)
+           (_o |
+            /  |
+            \  \______
+             \        )o
+              /|----- |
+              \|     /|
+</pre>
 		</div>
-	</body>
-	<script>
+		<script>
 		(function() {
 			const input = document.getElementById("skycfg-input");
 			const output = document.getElementById("skycfg-output");
 			const outputFormat = document.getElementById("output-format");
 			const emitDefaults = document.getElementById("emit-defaults");
 			const error = document.getElementById("skycfg-error");
+
+			const editor = ace.edit(input, {
+				mode: "ace/mode/python",
+				theme: "ace/theme/monokai",
+				fontSize: "16px",
+			});
 
 			let dirty = false;
 			const inputChanged = () => {
@@ -171,7 +187,7 @@ def main(ctx):
 					emit_defaults: emitDefaults.checked,
 				};
 
-				window.skycfg_main(input.value, JSON.stringify(opts), {
+				window.skycfg_main(editor.getValue(), JSON.stringify(opts), {
 					err: (err) => {
 						render(null, err);
 					},
@@ -203,14 +219,22 @@ def main(ctx):
 					}
 					newText += item;
 				};
-				output.innerText = newText;
+				const prismSyntax = {
+					yaml: Prism.languages.yaml,
+					json: Prism.languages.json,
+					proto: Prism.languages.protobuf,
+				}[result.syntax];
+				output.innerHTML = Prism.highlight(newText, prismSyntax);
 			};
 
-			input.addEventListener("input", inputChanged);
+			editor.session.on('change', (delta) => {
+				inputChanged();
+			});
 			outputFormat.addEventListener("change", refresh);
 			emitDefaults.addEventListener("change", refresh);
 
 			loaded.then((value) => { refresh() });
 		})();
-	</script>
+		</script>
+	</body>
 </html>
